@@ -1,25 +1,23 @@
-name: FTP Deploy
+name: 🚀 Deploy to Shared Host
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
-  ftp-deploy:
+  deploy:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
-    - name: Install lftp
-      run: sudo apt-get install -y lftp
-
-    - name: Deploy to FTP
-      env:
-        FTP_SERVER: ${{ secrets.FTP_SERVER }}
-        FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-        FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
-      run: |
-        lftp -c "open -u $FTP_USERNAME,$FTP_PASSWORD $FTP_SERVER; mirror -R ./ /"
+    - name: 📂 Sync files via FTP
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      with:
+        server: ${{ secrets.FTP_SERVER }}
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        local-dir: ./        # root of repo
+        server-dir: ./       # change to /public_html/ or whatever your host uses
+        protocol: ftp
+        port: 21
+        timeout: 120000
