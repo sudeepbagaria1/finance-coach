@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Elev8r – Risk Quiz</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>body{font-family:Inter,sans-serif}</style>
+</head>
+<body class="bg-slate-100 flex items-center justify-center h-screen">
+  <div class="bg-white p-8 rounded shadow w-full max-w-md">
+    <h1 class="text-2xl mb-6 text-center">Welcome 👋</h1>
+    <form id="quiz" class="space-y-4">
+      <!-- Income -->
+      <label class="block">
+        <span>Monthly family income (₹)</span>
+        <input type="number" name="income" required min="0" class="w-full border px-2 py-1 rounded">
+      </label>
+
+      <!-- Co-earners -->
+      <label class="block">
+        <span>Co-earners in family</span>
+        <input type="number" name="coEarners" required min="0" class="w-full border px-2 py-1 rounded">
+      </label>
+
+      <!-- Dependants -->
+      <label class="block">
+        <span>Dependants</span>
+        <input type="number" name="dependants" required min="0" class="w-full border px-2 py-1 rounded">
+      </label>
+
+      <!-- City tier -->
+      <label class="block">
+        <span>City tier</span>
+        <select name="cityTier" required class="w-full border px-2 py-1 rounded">
+          <option value="1">Metro (Tier 1)</option>
+          <option value="2">Tier 2</option>
+          <option value="3">Tier 3</option>
+        </select>
+      </label>
+
+      <!-- Risk appetite -->
+      <label class="block">
+        <span>Risk appetite (1 = low, 5 = high)</span>
+        <input type="range" name="risk" min="1" max="5" value="3" class="w-full">
+      </label>
+
+      <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded">Start Planning</button>
+    </form>
+  </div>
+
+  <script>
+    // Alpine-lite: handle submit
+    document.getElementById('quiz').addEventListener('submit', e => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(e.target).entries());
+      data.riskScore = +data.risk;              // copy slider value
+      delete data.risk;
+
+      // Generate UUID
+      data.uuid = crypto.randomUUID();
+      localStorage.setItem('elev8r_user', JSON.stringify(data));
+
+      // Forward to sheet
+      location.href = 'sheet.html';
+    });
+  </script>
+</body>
+</html>
