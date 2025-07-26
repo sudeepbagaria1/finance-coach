@@ -28,13 +28,21 @@
   <pre id="result" class="mt-6 max-w-md mx-auto bg-white p-4 rounded"></pre>
 
   <script>
-    document.getElementById('wiz').addEventListener('submit', async e => {
-      e.preventDefault();
-      const body = Object.fromEntries(new FormData(e.target).entries());
-      const res = await fetch('api/save.php', {method:'POST', body:JSON.stringify(body), headers:{'Content-Type':'application/json'}});
-      const json = await res.json();
-      document.getElementById('result').textContent = JSON.stringify(json, null, 2);
-    });
-    </script>
+document.getElementById('wiz').addEventListener('submit', async e => {
+  e.preventDefault();
+  const body = Object.fromEntries(new FormData(e.target).entries());
+  const save = await fetch('api/save.php', {method:'POST', body:JSON.stringify(body), headers:{'Content-Type':'application/json'}}).then(r=>r.json());
+  const rules = await fetch('api/rules.php', {method:'POST', body:JSON.stringify(body), headers:{'Content-Type':'application/json'}}).then(r=>r.json());
+  document.getElementById('result').innerHTML = `
+    <h2 class="font-bold mb-2">Your Plan</h2>
+    <ul class="list-disc ml-6">
+      <li>Emergency fund needed: ₹${rules.emergencyFundTarget.toLocaleString()}</li>
+      <li>50/20/30 Budget: Needs ₹${rules.budget50_20_30.needs}, Savings ₹${rules.budget50_20_30.savings}, Wants ₹${rules.budget50_20_30.wants}</li>
+      <li>Retirement equity allocation: ${rules.retirementEquity}</li>
+      <li>Car budget: max ₹${rules.carBudget.maxCarCost}, down-payment ₹${rules.carBudget.down20pc}, EMI ≤₹${rules.carBudget.emiCap}</li>
+    </ul>
+  `;
+});
+</script>
 </body>
 </html>
