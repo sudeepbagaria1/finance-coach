@@ -6,80 +6,35 @@
     <title>5-Step Wizard</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen">
-    <div id="wizard" class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
-        <div id="step1" class="step">
-            <h2 class="text-2xl font-bold mb-4">Step 1: Income</h2>
-            <input type="number" id="income" class="w-full p-2 border border-gray-300 rounded mb-4" placeholder="Enter your income">
-            <button onclick="nextStep(2)" class="w-full bg-blue-500 text-white p-2 rounded">Next</button>
-        </div>
-        <div id="step2" class="step hidden">
-            <h2 class="text-2xl font-bold mb-4">Step 2: Expenses</h2>
-            <input type="number" id="expenses" class="w-full p-2 border border-gray-300 rounded mb-4" placeholder="Enter your expenses">
-            <button onclick="nextStep(3)" class="w-full bg-blue-500 text-white p-2 rounded">Next</button>
-        </div>
-        <div id="step3" class="step hidden">
-            <h2 class="text-2xl font-bold mb-4">Step 3: Dependents</h2>
-            <input type="number" id="dependents" class="w-full p-2 border border-gray-300 rounded mb-4" placeholder="Enter number of dependents">
-            <button onclick="nextStep(4)" class="w-full bg-blue-500 text-white p-2 rounded">Next</button>
-        </div>
-        <div id="step4" class="step hidden">
-            <h2 class="text-2xl font-bold mb-4">Step 4: City</h2>
-            <input type="text" id="city" class="w-full p-2 border border-gray-300 rounded mb-4" placeholder="Enter your city">
-            <button onclick="nextStep(5)" class="w-full bg-blue-500 text-white p-2 rounded">Next</button>
-        </div>
-        <div id="step5" class="step hidden">
-            <h2 class="text-2xl font-bold mb-4">Step 5: Risk Level</h2>
-            <select id="riskLevel" class="w-full p-2 border border-gray-300 rounded mb-4">
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-            </select>
-            <button onclick="saveData()" class="w-full bg-blue-500 text-white p-2 rounded">Save</button>
-        </div>
-    </div>
+<body class="bg-slate-100 p-8">
+  <form id="wiz" class="max-w-md mx-auto bg-white p-6 rounded shadow">
+    <h1 class="text-xl mb-4">Quick Setup</h1>
 
-    <script>
-        function nextStep(step) {
-            document.querySelectorAll('.step').forEach(s => s.classList.add('hidden'));
-            document.getElementById('step' + step).classList.remove('hidden');
-        }
+    <label class="block mb-2">Monthly take-home (₹)</label>
+    <input name="income" type="number" required class="w-full border px-2 py-1 mb-3">
 
-        function saveData() {
-            const data = {
-                income: document.getElementById('income').value,
-                expenses: document.getElementById('expenses').value,
-                dependents: document.getElementById('dependents').value,
-                city: document.getElementById('city').value,
-                riskLevel: document.getElementById('riskLevel').value
-            };
+    <label class="block mb-2">Monthly expenses (₹)</label>
+    <input name="expenses" type="number" required class="w-full border px-2 py-1 mb-3">
 
-            const request = indexedDB.open('WizardDB', 1);
+    <label class="block mb-2">Dependants</label>
+    <input name="dependants" type="number" min="0" required class="w-full border px-2 py-1 mb-3">
 
-            request.onupgradeneeded = function(event) {
-                const db = event.target.result;
-                db.createObjectStore('wizardData', { keyPath: 'id', autoIncrement: true });
-            };
+    <label class="block mb-2">Risk appetite (1=low 5=high)</label>
+    <input name="risk" type="range" min="1" max="5" value="3" class="w-full mb-3">
 
-            request.onsuccess = function(event) {
-                const db = event.target.result;
-                const transaction = db.transaction(['wizardData'], 'readwrite');
-                const objectStore = transaction.objectStore('wizardData');
-                const addRequest = objectStore.add(data);
+    <button class="bg-blue-600 text-white px-4 py-2 rounded">Save & Compute</button>
+  </form>
 
-                addRequest.onsuccess = function() {
-                    alert('Data saved successfully!');
-                };
+  <pre id="result" class="mt-6 max-w-md mx-auto bg-white p-4 rounded"></pre>
 
-                addRequest.onerror = function() {
-                    alert('Error saving data');
-                };
-            };
-
-            request.onerror = function(event) {
-                alert('Error opening database');
-            };
-        }
+  <script>
+    document.getElementById('wiz').addEventListener('submit', async e => {
+      e.preventDefault();
+      const body = Object.fromEntries(new FormData(e.target).entries());
+      const res = await fetch('api/save.php', {method:'POST', body:JSON.stringify(body), headers:{'Content-Type':'application/json'}});
+      const json = await res.json();
+      document.getElementById('result').textContent = JSON.stringify(json, null, 2);
+    });
     </script>
 </body>
 </html>

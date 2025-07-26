@@ -1,49 +1,15 @@
 <?php
+header('Content-Type: application/json; charset=utf-8');
+$key = $_ENV['ENC_KEY'] ?? 'defaultkey123456';   // 16-char AES key
+$dir = __DIR__ . '/../data';
+if (!is_dir($dir)) mkdir($dir, 0777, true);
 
-// Check if the request method is POST
-if (
-    $_SERVER['REQUEST_METHOD'] === 'POST'
-) {
-    // Get the raw POST data
-    $jsonData = file_get_contents('php://input');
+$input = json_decode(file_get_contents('php://input'), true);
+if (!$input) { http_response_code(400); exit(json_encode(['error'=>'Bad JSON'])); }
 
-    // Check if the data is valid JSON
-    if (
-        json_decode($jsonData) !== null
-    ) {
-        // Generate a hash for the file name
-        $hash = hash('sha256', $jsonData);
+$hash = substr(md5(uniqid()), 0, 8);
+$plain = json_encode($input, JSON_PRETTY_PRINT);
+$cipher = openssl_encrypt($plain, 'AES-128-CBC', $key, 0, substr($key,0,16));
+file_put_contents("$dir/{$hash}.json", $cipher);
 
-        // Define the file path
-        $filePath = __DIR__ . '/../data/' . $hash . '.json';
-
-        // Encrypt the JSON data using AES-256
-        $key = openssl_random_pseudo_bytes(32); // 256-bit key
-        $iv = openssl_random_pseudo_bytes(openssl_cipher_iv_length('aes-256-cbc'));
-        $encryptedData = openssl_encrypt(
-            $jsonData,
-            'aes-256-cbc',
-            $key,
-            0,
-            $iv
-        );
-
-        // Combine IV and encrypted data
-        $encryptedData = base64_encode($iv . $encryptedData);
-
-        // Save the encrypted data to the file
-        if (
-            file_put_contents($filePath, $encryptedData) !== false
-        ) {
-            echo json_encode(['status' => 'success', 'file' => $hash . '.json']);
-        } else {
-            echo json_encode(['status' => 'error', 'message' => 'Failed to save the file']);
-        }
-    } else {
-        echo json_encode(['status' => 'error', 'message' => 'Invalid JSON data']);
-    }
-} else {
-    echo json_encode(['status' => 'error', 'message' => 'Invalid request method']);
-}
-
-?>
+echo json_encode(['id'=>$hash, 'msg'=>'saved']);
