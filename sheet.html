@@ -8,46 +8,47 @@
   <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 </head>
 <body class="bg-slate-100 p-4">
-  <div class="max-w-4xl mx-auto bg-white p-6 rounded shadow">
-    <h1 class="text-2xl mb-4">My Budget Sheet</h1>
+  <div class="max-w-5xl mx-auto bg-white p-6 rounded shadow">
+    <h1 class="text-2xl mb-4">My Budget Sheet vs Indian Averages</h1>
 
     <div x-data="sheet()" x-init="load()">
-      <!-- Income row -->
-      <div class="grid grid-cols-4 gap-2 mb-2 font-semibold">
-        <div>Category</div><div>Your ₹</div><div>India Avg %</div><div>India Avg ₹</div>
+      <div class="grid grid-cols-7 gap-2 mb-2 font-semibold">
+        <div>Category</div>
+        <div>Your ₹</div>
+        <div>India % Range</div>
+        <div>India Min ₹</div>
+        <div>India Max ₹</div>
+        <div>Status</div>
       </div>
 
-      <!-- Needs rows -->
       <template x-for="(row, key) in needs" :key="key">
-        <div class="grid grid-cols-4 gap-2 mb-1">
+        <div class="grid grid-cols-7 gap-2 mb-1 items-center">
           <div x-text="row.label"></div>
           <input type="number" x-model.number="row.value" @input="recalc()"
-                 class="w-full border px-1 rounded">
-          <div x-text="row.avgPct + '%'"></div>
-          <div x-text="row.avgRs.toLocaleString()"></div>
+                 class="w-full border px-1 rounded text-sm">
+          <div x-text="row.pctMin + '-' + row.pctMax + '%'"></div>
+          <div x-text="row.minRs.toLocaleString()"></div>
+          <div x-text="row.maxRs.toLocaleString()"></div>
+          <span :class="row.statusClass" x-text="row.status"></span>
         </div>
       </template>
 
       <!-- Totals -->
-      <div class="grid grid-cols-4 gap-2 mt-4 font-bold">
+      <div class="grid grid-cols-7 gap-2 mt-4 font-bold">
         <div>Total Needs (50 %)</div>
         <div>₹ <span x-text="needsTotal.toLocaleString()"></span></div>
         <div>50 %</div>
-        <div>₹ <span x-text="needsTarget.toLocaleString()"></span></div>
+        <div>₹ <span x-text="needsMin.toLocaleString()"></span></div>
+        <div>₹ <span x-text="needsMax.toLocaleString()"></span></div>
+        <div></div>
       </div>
 
-      <div class="grid grid-cols-4 gap-2">
-        <div>Savings (20 %)</div>
-        <div>₹ <span x-text="savings.toLocaleString()"></span></div>
-        <div>20 %</div>
-        <div>₹ <span x-text="savingsTarget.toLocaleString()"></span></div>
+      <div class="grid grid-cols-7 gap-2">
+        <div>Savings (20 %)</div><div>₹ <span x-text="savings.toLocaleString()"></span></div><div>20 %</div><div></div><div></div><div></div>
       </div>
 
-      <div class="grid grid-cols-4 gap-2">
-        <div>Wants (30 %)</div>
-        <div>₹ <span x-text="wants.toLocaleString()"></span></div>
-        <div>30 %</div>
-        <div>₹ <span x-text="wantsTarget.toLocaleString()"></span></div>
+      <div class="grid grid-cols-7 gap-2">
+        <div>Wants (30 %)</div><div>₹ <span x-text="wants.toLocaleString()"></span></div><div>30 %</div><div></div><div></div><div></div>
       </div>
 
       <button @click="save()" class="mt-6 bg-green-600 text-white px-4 py-2 rounded">Save</button>
@@ -60,18 +61,17 @@
     return {
       income: 0,
       needsTotal: 0,
-      needsTarget: 0,
+      needsMin: 0,
+      needsMax: 0,
       savings: 0,
-      savingsTarget: 0,
       wants: 0,
-      wantsTarget: 0,
       needs: {
-        kitchen:   {label:'Kitchen',   value:0, avgPct:32.5}, // 30–35 %
-        school:    {label:'School',    value:0, avgPct:7.5},  // 5–10 %
-        medicine:  {label:'Medicine',  value:0, avgPct:6.5},  // 5–8 %
-        rent:      {label:'Rent/EMI',  value:0, avgPct:22.5}, // 20–25 %
-        transport: {label:'Transport', value:0, avgPct:10},   // 8–12 %
-        others:    {label:'Others',    value:0, avgPct:15}    // 10–20 %
+        kitchen:   {label:'Kitchen',   value:0, pctMin:30, pctMax:35},
+        school:    {label:'School',    value:0, pctMin:5,  pctMax:10},
+        medicine:  {label:'Medicine',  value:0, pctMin:5,  pctMax:8},
+        rent:      {label:'Rent/EMI',  value:0, pctMin:20, pctMax:25},
+        transport: {label:'Transport', value:0, pctMin:8,  pctMax:12},
+        others:    {label:'Others',    value:0, pctMin:10, pctMax:20}
       },
       load() {
         const user = JSON.parse(localStorage.getItem('elev8r_user') || '{}');
@@ -79,20 +79,28 @@
         this.recalc();
       },
       recalc() {
-        // compute target rupees based on percentages
-        this.needsTarget   = Math.round(this.income * 0.50);
-        this.savingsTarget = Math.round(this.income * 0.20);
-        this.wantsTarget   = Math.round(this.income * 0.30);
+        const inc = this.income;
+        this.needsMin = Math.round(inc * 0.50);
+        this.needsMax = Math.round(inc * 0.50);
+        this.savings = Math.round(inc * 0.20);
+        this.wants  = Math.round(inc * 0.30);
 
-        // populate India-average rupees
+        this.needsTotal = 0;
         for (const key in this.needs) {
-          this.needs[key].avgRs = Math.round(this.income * (this.needs[key].avgPct / 100));
-        }
+          const row = this.needs[key];
+          row.minRs = Math.round(inc * (row.pctMin / 100));
+          row.maxRs = Math.round(inc * (row.pctMax / 100));
+          this.needsTotal += row.value;
 
-        // user totals
-        this.needsTotal = Object.values(this.needs).reduce((s, r) => s + r.value, 0);
-        this.savings   = this.savingsTarget;
-        this.wants     = this.wantsTarget;
+          // status colour
+          if (row.value < row.minRs) {
+            row.status = 'Below'; row.statusClass = 'text-red-600';
+          } else if (row.value > row.maxRs) {
+            row.status = 'Above'; row.statusClass = 'text-orange-600';
+          } else {
+            row.status = 'OK'; row.statusClass = 'text-green-600';
+          }
+        }
       },
       save() {
         const data = JSON.parse(localStorage.getItem('elev8r_user') || {});
