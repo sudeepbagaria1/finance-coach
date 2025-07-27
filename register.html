@@ -39,29 +39,40 @@
         </select>
       </label>
 
-      <!-- Risk appetite -->
-      <label class="block">
-        <span>Risk appetite (1 = low, 5 = high)</span>
-        <input type="range" name="risk" min="1" max="5" value="3" class="w-full">
-      </label>
-
       <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded">Start Planning</button>
     </form>
   </div>
 
   <script>
-    // Alpine-lite: handle submit
+    // auto-calculate riskScore 1-5 based on conditions
+    function calcRisk(data) {
+      let score = 3; // baseline
+
+      // Income stability
+      const income = +data.income;
+      const coEarners = +data.coEarners;
+      if (income < 30000) score -= 1;
+      if (income > 100000) score += 1;
+      if (coEarners === 0) score -= 1;
+
+      // City tier (higher tier = higher risk tolerance)
+      const city = +data.cityTier;
+      score += (city - 2); // metro +1, tier 3 -1
+
+      // Dependants (liability)
+      const deps = +data.dependants;
+      score = Math.max(1, Math.min(5, score - (deps * 0.5)));
+
+      return Math.round(score);
+    }
+
+    // handle submit
     document.getElementById('quiz').addEventListener('submit', e => {
       e.preventDefault();
       const data = Object.fromEntries(new FormData(e.target).entries());
-      data.riskScore = +data.risk;              // copy slider value
-      delete data.risk;
-
-      // Generate UUID
+      data.riskScore = calcRisk(data);
       data.uuid = crypto.randomUUID();
       localStorage.setItem('elev8r_user', JSON.stringify(data));
-
-      // Forward to sheet
       location.href = 'sheet.html';
     });
   </script>
