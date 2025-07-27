@@ -13,32 +13,41 @@
 
     <div x-data="sheet()" x-init="load()">
       <!-- Income row -->
-      <div class="grid grid-cols-3 gap-4 mb-2">
-        <div>Monthly Income</div>
-        <div>₹ <span x-text="income"></span></div>
-        <div></div>
+      <div class="grid grid-cols-4 gap-2 mb-2 font-semibold">
+        <div>Category</div><div>Your ₹</div><div>India Avg %</div><div>India Avg ₹</div>
       </div>
 
-      <!-- Needs (editable) -->
+      <!-- Needs rows -->
       <template x-for="(row, key) in needs" :key="key">
-        <div class="grid grid-cols-3 gap-4 mb-1">
+        <div class="grid grid-cols-4 gap-2 mb-1">
           <div x-text="row.label"></div>
           <input type="number" x-model.number="row.value" @input="recalc()"
                  class="w-full border px-1 rounded">
-          <span class="text-xs" :class="row.delta<0 ? 'text-green-600':'text-red-600'">
-            vs India: <span x-text="row.delta.toFixed(1)+'%'"></span>
-          </span>
+          <div x-text="row.avgPct + '%'"></div>
+          <div x-text="row.avgRs.toLocaleString()"></div>
         </div>
       </template>
 
-      <!-- Savings & Wants -->
-      <div class="grid grid-cols-3 gap-4 mt-4">
+      <!-- Totals -->
+      <div class="grid grid-cols-4 gap-2 mt-4 font-bold">
+        <div>Total Needs (50 %)</div>
+        <div>₹ <span x-text="needsTotal.toLocaleString()"></span></div>
+        <div>50 %</div>
+        <div>₹ <span x-text="needsTarget.toLocaleString()"></span></div>
+      </div>
+
+      <div class="grid grid-cols-4 gap-2">
         <div>Savings (20 %)</div>
-        <div>₹ <span x-text="savings"></span></div>
-        <div></div>
+        <div>₹ <span x-text="savings.toLocaleString()"></span></div>
+        <div>20 %</div>
+        <div>₹ <span x-text="savingsTarget.toLocaleString()"></span></div>
+      </div>
+
+      <div class="grid grid-cols-4 gap-2">
         <div>Wants (30 %)</div>
-        <div>₹ <span x-text="wants"></span></div>
-        <div></div>
+        <div>₹ <span x-text="wants.toLocaleString()"></span></div>
+        <div>30 %</div>
+        <div>₹ <span x-text="wantsTarget.toLocaleString()"></span></div>
       </div>
 
       <button @click="save()" class="mt-6 bg-green-600 text-white px-4 py-2 rounded">Save</button>
@@ -50,39 +59,48 @@
   function sheet() {
     return {
       income: 0,
+      needsTotal: 0,
+      needsTarget: 0,
+      savings: 0,
+      savingsTarget: 0,
+      wants: 0,
+      wantsTarget: 0,
       needs: {
-        kitchen:{label:'Kitchen', value:0, delta:0},
-        school:{label:'School', value:0, delta:0},
-        medicine:{label:'Medicine', value:0, delta:0},
-        rent:{label:'Rent', value:0, delta:0},
-        transport:{label:'Transport', value:0, delta:0},
-        others:{label:'Others', value:0, delta:0}
+        kitchen:   {label:'Kitchen',   value:0, avgPct:32.5}, // 30–35 %
+        school:    {label:'School',    value:0, avgPct:7.5},  // 5–10 %
+        medicine:  {label:'Medicine',  value:0, avgPct:6.5},  // 5–8 %
+        rent:      {label:'Rent/EMI',  value:0, avgPct:22.5}, // 20–25 %
+        transport: {label:'Transport', value:0, avgPct:10},   // 8–12 %
+        others:    {label:'Others',    value:0, avgPct:15}    // 10–20 %
       },
-      savings:0, wants:0,
-      benchmarks:{ kitchen:4500, school:3000, medicine:800, rent:7000, transport:2000, others:2000 },
       load() {
         const user = JSON.parse(localStorage.getItem('elev8r_user') || '{}');
         this.income = +user.income || 0;
         this.recalc();
       },
       recalc() {
-        const totalNeeds = Object.values(this.needs).reduce((s, r) => s + r.value, 0);
-        this.savings = Math.round(this.income * 0.20);
-        this.wants  = Math.round(this.income * 0.30);
+        // compute target rupees based on percentages
+        this.needsTarget   = Math.round(this.income * 0.50);
+        this.savingsTarget = Math.round(this.income * 0.20);
+        this.wantsTarget   = Math.round(this.income * 0.30);
+
+        // populate India-average rupees
         for (const key in this.needs) {
-          const avg = this.benchmarks[key] || 0;
-          this.needs[key].delta = ((this.needs[key].value - avg) / avg) * 100;
+          this.needs[key].avgRs = Math.round(this.income * (this.needs[key].avgPct / 100));
         }
+
+        // user totals
+        this.needsTotal = Object.values(this.needs).reduce((s, r) => s + r.value, 0);
+        this.savings   = this.savingsTarget;
+        this.wants     = this.wantsTarget;
       },
       save() {
         const data = JSON.parse(localStorage.getItem('elev8r_user') || {});
         data.needs = Object.fromEntries(Object.entries(this.needs).map(([k,v])=>[k,v.value]));
-        data.savings = this.savings;
-        data.wants   = this.wants;
         localStorage.setItem('elev8r_user', JSON.stringify(data));
         alert('Saved!');
       }
-    }
+    };
   }
   </script>
 </body>
