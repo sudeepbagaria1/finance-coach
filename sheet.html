@@ -81,28 +81,118 @@
   <script>
   function sheet() {
     return {
-      income: 0,
-      needsMin: 0, needsMax: 0, needsTotal: 0,
-      savingsTotal: 0, wantsTotal: 0,
-      needs: {
-        kitchen:   {label:'Kitchen',   value:0, pctMin:30, pctMax:35},
-        school:    {label:'School',    value:0, pctMin:5,  pctMax:10},
-        medicine:  {label:'Medicine',  value:0, pctMin:5,  pctMax:8},
-        rent:      {label:'Rent/EMI',  value:0, pctMin:20, pctMax:25},
-        transport: {label:'Transport', value:0, pctMin:8,  pctMax:12},
-        others:    {label:'Others',    value:0, pctMin:10, pctMax:20}
-      },
-      savingsHeads: {
-        emergency: {label:'Emergency Fund', value:0, goalPct:50},
-        equity:    {label:'Equity/SIP',     value:0, goalPct:30},
-        ppf:       {label:'PPF/Bonds',      value:0, goalPct:20}
-      },
-      wantsHeads: {
-        car:       {label:'Car running', value:0, goalPct:40},
-        vacation:  {label:'Vacation',    value:0, goalPct:20},
-        shopping:  {label:'Shopping',    value:0, goalPct:20},
-        utilities: {label:'Utilities',   value:0, goalPct:20}
-      },
+  income: 0,
+  needsMin: 0, needsMax: 0, needsTotal: 0,
+  savingsTotal: 0, wantsTotal: 0,
+  needs: {
+    kitchen:   {label:'Kitchen',   value:0, pctMin:30, pctMax:35},
+    school:    {label:'School',    value:0, pctMin:5,  pctMax:10},
+    medicine:  {label:'Medicine',  value:0, pctMin:5,  pctMax:8},
+    rent:      {label:'Rent/EMI',  value:0, pctMin:20, pctMax:25},
+    transport: {label:'Transport', value:0, pctMin:8,  pctMax:12},
+    others:    {label:'Others',    value:0, pctMin:10, pctMax:20}
+  },
+  savingsHeads: {
+    emergency: {label:'Emergency Fund', value:0, goalPct:50},
+    equity:    {label:'Equity/SIP',     value:0, goalPct:30},
+    ppf:       {label:'PPF/Bonds',      value:0, goalPct:20}
+  },
+  wantsHeads: {
+    car:       {label:'Car running', value:0, goalPct:40},
+    vacation:  {label:'Vacation',    value:0, goalPct:20},
+    shopping:  {label:'Shopping',    value:0, goalPct:20},
+    utilities: {label:'Utilities',   value:0, goalPct:20}
+  },
+  // keep the full user object so we can read age & riskScore
+  incomeObj: {},
+
+  getSuggestedSavingsSplit() {
+    const age  = +this.incomeObj.age  || 30;
+    const risk = +this.incomeObj.riskScore || 3;
+
+    let equityPct = 0;
+    switch (risk) {
+      case 1: equityPct = Math.max(100 - age, 20); break;
+      case 2:
+      case 3: equityPct = Math.max(110 - age, 30); break;
+      case 4:
+      case 5: equityPct = Math.max(120 - age, 40); break;
+    }
+
+    const debtPct = 100 - equityPct;
+    const ppfPct  = Math.round(debtPct * 0.7);
+    const emergencyPct = 100 - equityPct - ppfPct;
+
+    return {
+      emergency: Math.max(10, emergencyPct),
+      equity:    Math.round(equityPct),
+      ppf:       Math.max(0, ppfPct)
+    };
+  },
+
+  load() {
+    const user = JSON.parse(localStorage.getItem('elev8r_user') || '{}');
+    this.incomeObj = user;
+    this.income = +user.income || 0;
+
+    // restore Needs
+    for (const k in this.needs) {
+      this.needs[k].value = user.needs?.[k] || 0;
+    }
+
+    // restore Savings & Wants (objects with .value and .goalPct)
+    for (const k in this.savingsHeads) {
+      const saved = user.savingsHeads?.[k];
+      if (saved) {
+        this.savingsHeads[k].value   = saved.value || 0;
+        this.savingsHeads[k].goalPct = saved.goalPct || 33;
+      } else {
+        // first load – apply dynamic rule
+        const split = this.getSuggestedSavingsSplit();
+        this.savingsHeads[k].goalPct = split[k] || 33;
+      }
+    }
+    for (const k in this.wantsHeads) {
+      const saved = user.wantsHeads?.[k];
+      if (saved) {
+        this.wantsHeads[k].value   = saved.value || 0;
+        this.wantsHeads[k].goalPct = saved.goalPct || 25;
+      } else {
+        this.wantsHeads[k].goalPct = {car:40,vacation:20,shopping:20,utilities:20}[k] || 25;
+      }
+    }
+
+    this.recalc();
+  },
+
+  recalc() {
+    const inc = this.income;
+    this.needsMin   = Math.round(inc * 0.50);
+    this.needsMax   = Math.round(inc * 0.50);
+    this.needsTotal = Object.values(this.needs).reduce((s, r) => s + r.value, 0);
+
+    for (const key in this.needs) {
+      const row = this.needs[key];
+      row.minRs = Math.round(inc * (row.pctMin / 100));
+      row.maxRs = Math.round(inc * (row.pctMax / 100));
+      if (row.value < row.minRs) { row.status = 'Below'; row.statusClass = 'text-red-600'; }
+      else if (row.value > row.maxRs) { row.status = 'Above'; row.statusClass = 'text-orange-600'; }
+      else { row.status = 'OK'; row.statusClass = 'text-green-600'; }
+    }
+
+    this.savingsTotal = Object.values(this.savingsHeads).reduce((s, r) => s + r.value, 0);
+    this.wantsTotal   = Object.values(this.wantsHeads).reduce((s, r) => s + r.value, 0);
+  },
+
+  save() {
+    const data = JSON.parse(localStorage.getItem('elev8r_user') || {});
+    data.needs       = Object.fromEntries(Object.entries(this.needs).map(([k,v])=>[k,v.value]));
+    data.savingsHeads = Object.fromEntries(Object.entries(this.savingsHeads).map(([k,v])=>[k,{value:v.value, goalPct:v.goalPct}]));
+    data.wantsHeads   = Object.fromEntries(Object.entries(this.wantsHeads).map(([k,v])=>[k,{value:v.value, goalPct:v.goalPct}]));
+    localStorage.setItem('elev8r_user', JSON.stringify(data));
+    alert('Saved!');
+  }
+};
       load() {
         const user = JSON.parse(localStorage.getItem('elev8r_user') || '{}');
         this.income = +user.income || 0;

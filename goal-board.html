@@ -38,7 +38,13 @@
       </table>
     </div>
 
-    <button onclick="location.href='sheet.html'" class="mt-6 bg-gray-600 text-white px-4 py-2 rounded">← Back to Sheet</button>
+    <!-- NEW FLOW BUTTONS -->
+    <div class="mt-8 flex gap-4">
+      <button onclick="location.href='sheet.html'"
+              class="bg-gray-600 text-white px-4 py-2 rounded">← Back to Sheet</button>
+      <button onclick="location.href='actual-tracker.html'"
+              class="bg-green-600 text-white px-4 py-2 rounded">Monthly Entries →</button>
+    </div>
   </div>
 
   <script>
@@ -62,35 +68,49 @@
   }
 
   // ==== goal engine ====
+  function emergencyFundProgress() {
+    const emg = goals.find(g => g.type === 'emergency');
+    if (!emg) return 0;
+    const surplus = monthlySurplus();
+    if (surplus === 0) return 0;
+    const monthsNeeded = Math.ceil(emg.target / surplus);
+    const monthsElapsed = Math.floor((new Date() - new Date(emg.ym + '-01')) / (1000*60*60*24*30));
+    return Math.min(monthsElapsed / monthsNeeded, 1);
+  }
+
   function computeGoal(goal) {
     const surplus = monthlySurplus();
     if (surplus === 0) {
-      return {begin: nowYM(), complete: 'Never', remark: 'Need surplus'};
+      return { begin: nowYM(), complete: 'Never', remark: 'Need surplus' };
+    }
+
+    // Gate: Car waits until Emergency is 100 %
+    if (goal.type === 'car' && emergencyFundProgress() < 1) {
+      return { begin: nowYM(), complete: 'Waiting', remark: 'Emergency fund not ready' };
     }
 
     let months = Math.ceil(goal.target / surplus);
 
-    // thumb rule for car
+    // Car thumb rule
     if (goal.type === 'car') {
       const downNeeded = Math.round(goal.target * 0.20);
       const emi        = Math.round(goal.target * 0.80 / 48);
       const runCap     = Math.round(user.income * 0.10 / 12);
       const totalOut   = emi + runCap;
       if (totalOut > surplus) {
-        return {begin: nowYM(), complete: 'Never', remark: 'Monthly outgo > surplus'};
+        return { begin: nowYM(), complete: 'Never', remark: 'Monthly outgo > surplus' };
       }
       months = Math.ceil(downNeeded / surplus) + 48; // 4-year loan
     }
 
-    const begin   = nowYM();
+    const begin    = nowYM();
     const complete = addMonths(begin, months);
-    return {begin, complete, remark: 'On track'};
+    return { begin, complete, remark: 'On track' };
   }
 
   // ==== storage ====
   function loadGoals() {
     const stored = JSON.parse(localStorage.getItem('elev8r_goals3') || '[]');
-    // enforce emergency on first load
     if (!stored.some(g => g.type === 'emergency')) {
       const emergencyTarget = (user.income || 0) * 6;
       stored.unshift({
@@ -100,7 +120,6 @@
     }
     return stored;
   }
-
   let goals = loadGoals();
 
   function saveGoals() { localStorage.setItem('elev8r_goals3', JSON.stringify(goals)); }
@@ -146,7 +165,9 @@
     saveGoals(); render();
     document.getElementById('btnAdd').textContent = 'Add';
     document.getElementById('btnAdd').onclick = addOrUpdate;
-    document.getElementById('ym').value = ''; document.getElementById('name').value = ''; document.getElementById('target').value = '';
+    document.getElementById('ym').value = '';
+    document.getElementById('name').value = '';
+    document.getElementById('target').value = '';
   }
 
   function addOrUpdate() {
@@ -158,11 +179,12 @@
     if (type === 'emergency') return alert('Emergency fund already exists');
     goals.push({id:Date.now(), name, target, type, ym, locked:false});
     saveGoals(); render();
-    document.getElementById('ym').value = ''; document.getElementById('name').value = ''; document.getElementById('target').value = '';
+    document.getElementById('ym').value = '';
+    document.getElementById('name').value = '';
+    document.getElementById('target').value = '';
   }
 
   function delGoal(i) { goals.splice(i,1); saveGoals(); render(); }
-
   render();
   </script>
 </body>
