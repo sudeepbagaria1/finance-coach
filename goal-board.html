@@ -10,29 +10,20 @@
   <div class="max-w-5xl mx-auto bg-white p-6 rounded shadow">
     <h1 class="text-2xl mb-4">Goal Timeline</h1>
 
-    <!-- Add goal -->
-    <div class="grid grid-cols-5 gap-2 mb-4 items-end text-sm">
-      <div>
-        <label class="block">Year-Month</label>
-        <input type="month" id="ym" class="w-full border px-1 rounded">
-      </div>
-      <div>
-        <label class="block">Goal</label>
-        <input id="goalName" placeholder="e.g. Car" class="w-full border px-1 rounded">
-      </div>
-      <div>
-        <label class="block">Target ₹</label>
-        <input id="target" type="number" class="w-full border px-1 rounded">
-      </div>
-      <div>
-        <label class="block">Priority</label>
-        <select id="priority" class="w-full border px-1 rounded">
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
+    <!-- Add / Edit goal form -->
+    <div class="grid grid-cols-5 gap-2 mb-4 text-sm items-end">
+      <div><label>Year-Month</label><input id="ym" type="month" class="w-full border px-1 rounded"></div>
+      <div><label>Goal</label><input id="name" placeholder="e.g. Car" class="w-full border px-1 rounded"></div>
+      <div><label>Target ₹</label><input id="target" type="number" class="w-full border px-1 rounded"></div>
+      <div><label>Type</label>
+        <select id="type" class="w-full border px-1 rounded">
+          <option value="emergency">Emergency</option>
+          <option value="car">Car</option>
+          <option value="vacation">Vacation</option>
+          <option value="house">House</option>
         </select>
       </div>
-      <button onclick="addRow()" class="bg-blue-600 text-white px-2 py-1 rounded">Add</button>
+      <button onclick="addOrUpdate()" class="bg-blue-600 text-white px-2 py-1 rounded" id="btnAdd">Add</button>
     </div>
 
     <!-- Table -->
@@ -40,8 +31,7 @@
       <table class="w-full text-sm">
         <thead>
           <tr class="bg-gray-100">
-            <th>Year-Month</th><th>Goal</th><th>Target ₹</th>
-            <th>Savings Begin</th><th>Estimated Complete</th><th>Remarks</th><th></th>
+            <th>Goal</th><th>Target ₹</th><th>Savings Begin</th><th>Estimated Complete</th><th>Remarks</th><th></th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
@@ -52,69 +42,126 @@
   </div>
 
   <script>
+  // ==== helpers ====
+  function nowYM() { return new Date().toISOString().slice(0,7); }
+  function addMonths(ym, n) {
+    const d = new Date(ym + '-01');
+    d.setMonth(d.getMonth() + n);
+    return d.toISOString().slice(0,7);
+  }
+
+  // ==== load user data ====
   const user  = JSON.parse(localStorage.getItem('elev8r_user') || '{}');
-  const needs = JSON.parse(localStorage.getItem('elev8r_user') || '{}').needs || {};
-  const wants = JSON.parse(localStorage.getItem('elev8r_user') || '{}').wantsHeads || {};
-
-  // compute monthly surplus
-  function surplus() {
-    const inc = user.income || 0;
-    const nTotal = Object.values(needs).reduce((a,b)=>a+(+b),0);
-    const wTotal = Object.values(wants).reduce((a,b)=>a+(+b.value),0);
-    return Math.max(0, inc - nTotal - wTotal);
+  const needs = user.needs || {};
+  const wants = user.wantsHeads || {};
+  function monthlySurplus() {
+    const inc   = user.income || 0;
+    const nSum  = Object.values(needs).reduce((a,b)=>a+(+b),0);
+    const wSum  = Object.values(wants).reduce((a,b)=>a+(+b.value),0);
+    return Math.max(0, inc - nSum - wSum);
   }
 
-  let goals = JSON.parse(localStorage.getItem('elev8r_goals2') || '[]');
+  // ==== goal engine ====
+  function computeGoal(goal) {
+    const surplus = monthlySurplus();
+    if (surplus === 0) {
+      return {begin: nowYM(), complete: 'Never', remark: 'Need surplus'};
+    }
 
-  function addRow() {
-    const ym      = document.getElementById('ym').value;
-    const name    = document.getElementById('goalName').value;
-    const target  = Number(document.getElementById('target').value);
-    const priority= document.getElementById('priority').value;
-    if (!ym || !name || !target) return alert('Fill all fields');
+    let months = Math.ceil(goal.target / surplus);
 
-    const begin   = new Date().toISOString().slice(0,7); // YYYY-MM
-    const surplusAmt = surplus();
-    let monthsNeeded = Math.ceil(target / surplusAmt) || 9999;
-    if (priority === 'high' && monthsNeeded > 48) monthsNeeded = 48; // thumb rule cap
-    const endDate = new Date(begin + '-01');
-    endDate.setMonth(endDate.getMonth() + monthsNeeded);
-    const complete = endDate.toISOString().slice(0,7);
+    // thumb rule for car
+    if (goal.type === 'car') {
+      const downNeeded = Math.round(goal.target * 0.20);
+      const emi        = Math.round(goal.target * 0.80 / 48);
+      const runCap     = Math.round(user.income * 0.10 / 12);
+      const totalOut   = emi + runCap;
+      if (totalOut > surplus) {
+        return {begin: nowYM(), complete: 'Never', remark: 'Monthly outgo > surplus'};
+      }
+      months = Math.ceil(downNeeded / surplus) + 48; // 4-year loan
+    }
 
-    let remark = '';
-    if (surplusAmt === 0) remark = 'Need surplus first';
-    else if (monthsNeeded > 60) remark = 'Long term; raise surplus';
-    else remark = 'On track';
-
-    goals.push({ym, name, target, begin, complete, remark});
-    localStorage.setItem('elev8r_goals2', JSON.stringify(goals));
-    render();
-    document.getElementById('ym').value=''; document.getElementById('goalName').value=''; document.getElementById('target').value='';
+    const begin   = nowYM();
+    const complete = addMonths(begin, months);
+    return {begin, complete, remark: 'On track'};
   }
 
-  function delRow(i) {
-    goals.splice(i,1);
-    localStorage.setItem('elev8r_goals2', JSON.stringify(goals));
-    render();
+  // ==== storage ====
+  function loadGoals() {
+    const stored = JSON.parse(localStorage.getItem('elev8r_goals3') || '[]');
+    // enforce emergency on first load
+    if (!stored.some(g => g.type === 'emergency')) {
+      const emergencyTarget = (user.income || 0) * 6;
+      stored.unshift({
+        id:'emergency', name:'Emergency Fund', target: emergencyTarget,
+        type:'emergency', ym: nowYM(), locked:true
+      });
+    }
+    return stored;
   }
+
+  let goals = loadGoals();
+
+  function saveGoals() { localStorage.setItem('elev8r_goals3', JSON.stringify(goals)); }
 
   function render() {
     const tbody = document.getElementById('tbody');
     tbody.innerHTML = '';
     goals.forEach((g,i) => {
+      const res = computeGoal(g);
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${g.ym}</td>
         <td>${g.name}</td>
         <td>${g.target.toLocaleString()}</td>
-        <td>${g.begin}</td>
-        <td>${g.complete}</td>
-        <td class="text-xs">${g.remark}</td>
-        <td><button onclick="delRow(${i})" class="text-red-600">✕</button></td>
+        <td>${res.begin}</td>
+        <td>${res.complete}</td>
+        <td class="text-xs">${res.remark}</td>
+        <td>
+          ${!g.locked ? `
+            <button onclick="editGoal(${i})" class="text-blue-600">✎</button>
+            <button onclick="delGoal(${i})" class="text-red-600">✕</button>`
+            : ''}
+        </td>
       `;
       tbody.appendChild(tr);
     });
   }
+
+  function editGoal(i) {
+    const g = goals[i];
+    document.getElementById('ym').value   = g.ym;
+    document.getElementById('name').value = g.name;
+    document.getElementById('target').value = g.target;
+    document.getElementById('type').value   = g.type;
+    document.getElementById('btnAdd').textContent = 'Update';
+    document.getElementById('btnAdd').onclick = () => updateGoal(i);
+  }
+
+  function updateGoal(i) {
+    goals[i].ym     = document.getElementById('ym').value;
+    goals[i].name   = document.getElementById('name').value;
+    goals[i].target = +document.getElementById('target').value;
+    goals[i].type   = document.getElementById('type').value;
+    saveGoals(); render();
+    document.getElementById('btnAdd').textContent = 'Add';
+    document.getElementById('btnAdd').onclick = addOrUpdate;
+    document.getElementById('ym').value = ''; document.getElementById('name').value = ''; document.getElementById('target').value = '';
+  }
+
+  function addOrUpdate() {
+    const ym     = document.getElementById('ym').value;
+    const name   = document.getElementById('name').value;
+    const target = +document.getElementById('target').value;
+    const type   = document.getElementById('type').value;
+    if (!ym || !name || !target) return alert('Fill all fields');
+    if (type === 'emergency') return alert('Emergency fund already exists');
+    goals.push({id:Date.now(), name, target, type, ym, locked:false});
+    saveGoals(); render();
+    document.getElementById('ym').value = ''; document.getElementById('name').value = ''; document.getElementById('target').value = '';
+  }
+
+  function delGoal(i) { goals.splice(i,1); saveGoals(); render(); }
 
   render();
   </script>
