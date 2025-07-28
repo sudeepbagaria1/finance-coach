@@ -12,15 +12,11 @@
     <h1 class="text-2xl mb-4">My Budget Sheet vs Indian Averages</h1>
 
     <div x-data="sheet()" x-init="load()">
-      <div class="grid grid-cols-7 gap-2 mb-2 font-semibold">
-        <div>Category</div>
-        <div>Your ₹</div>
-        <div>India % Range</div>
-        <div>India Min ₹</div>
-        <div>India Max ₹</div>
-        <div>Status</div>
+      <!-- Needs section -->
+      <h2 class="text-lg font-bold mb-2">Needs (50 %)</h2>
+      <div class="grid grid-cols-7 gap-2 mb-1 font-semibold">
+        <div>Category</div><div>Your ₹</div><div>India % Range</div><div>India Min ₹</div><div>India Max ₹</div><div>Status</div>
       </div>
-
       <template x-for="(row, key) in needs" :key="key">
         <div class="grid grid-cols-7 gap-2 mb-1 items-center">
           <div x-text="row.label"></div>
@@ -33,6 +29,34 @@
         </div>
       </template>
 
+      <!-- Savings section -->
+      <h2 class="text-lg font-bold mt-6 mb-2">Savings (20 %)</h2>
+      <div class="grid grid-cols-3 gap-2 mb-1 font-semibold">
+        <div>Category</div><div>Your ₹</div><div>Goal % within 20 %</div>
+      </div>
+      <template x-for="(row, key) in savingsHeads" :key="key">
+        <div class="grid grid-cols-3 gap-2 mb-1">
+          <div x-text="row.label"></div>
+          <input type="number" x-model.number="row.value" @input="recalc()"
+                 class="w-full border px-1 rounded text-sm">
+          <input type="number" x-model.number="row.goalPct" class="w-full border px-1 rounded text-sm" placeholder="%">
+        </div>
+      </template>
+
+      <!-- Wants section -->
+      <h2 class="text-lg font-bold mt-6 mb-2">Wants (30 %)</h2>
+      <div class="grid grid-cols-3 gap-2 mb-1 font-semibold">
+        <div>Category</div><div>Your ₹</div><div>Goal % within 30 %</div>
+      </div>
+      <template x-for="(row, key) in wantsHeads" :key="key">
+        <div class="grid grid-cols-3 gap-2 mb-1">
+          <div x-text="row.label"></div>
+          <input type="number" x-model.number="row.value" @input="recalc()"
+                 class="w-full border px-1 rounded text-sm">
+          <input type="number" x-model.number="row.goalPct" class="w-full border px-1 rounded text-sm" placeholder="%">
+        </div>
+      </template>
+
       <!-- Totals -->
       <div class="grid grid-cols-7 gap-2 mt-4 font-bold">
         <div>Total Needs (50 %)</div>
@@ -42,13 +66,11 @@
         <div>₹ <span x-text="needsMax.toLocaleString()"></span></div>
         <div></div>
       </div>
-
-      <div class="grid grid-cols-7 gap-2">
-        <div>Savings (20 %)</div><div>₹ <span x-text="savings.toLocaleString()"></span></div><div>20 %</div><div></div><div></div><div></div>
+      <div class="grid grid-cols-3 gap-2">
+        <div>Total Savings (20 %)</div><div>₹ <span x-text="savingsTotal.toLocaleString()"></span></div><div></div>
       </div>
-
-      <div class="grid grid-cols-7 gap-2">
-        <div>Wants (30 %)</div><div>₹ <span x-text="wants.toLocaleString()"></span></div><div>30 %</div><div></div><div></div><div></div>
+      <div class="grid grid-cols-3 gap-2">
+        <div>Total Wants (30 %)</div><div>₹ <span x-text="wantsTotal.toLocaleString()"></span></div><div></div>
       </div>
 
       <button @click="save()" class="mt-6 bg-green-600 text-white px-4 py-2 rounded">Save</button>
@@ -60,11 +82,8 @@
   function sheet() {
     return {
       income: 0,
-      needsTotal: 0,
-      needsMin: 0,
-      needsMax: 0,
-      savings: 0,
-      wants: 0,
+      needsMin: 0, needsMax: 0, needsTotal: 0,
+      savingsTotal: 0, wantsTotal: 0,
       needs: {
         kitchen:   {label:'Kitchen',   value:0, pctMin:30, pctMax:35},
         school:    {label:'School',    value:0, pctMin:5,  pctMax:10},
@@ -73,6 +92,17 @@
         transport: {label:'Transport', value:0, pctMin:8,  pctMax:12},
         others:    {label:'Others',    value:0, pctMin:10, pctMax:20}
       },
+      savingsHeads: {
+        emergency: {label:'Emergency Fund', value:0, goalPct:50},
+        equity:    {label:'Equity/SIP',     value:0, goalPct:30},
+        ppf:       {label:'PPF/Bonds',      value:0, goalPct:20}
+      },
+      wantsHeads: {
+        car:       {label:'Car running', value:0, goalPct:40},
+        vacation:  {label:'Vacation',    value:0, goalPct:20},
+        shopping:  {label:'Shopping',    value:0, goalPct:20},
+        utilities: {label:'Utilities',   value:0, goalPct:20}
+      },
       load() {
         const user = JSON.parse(localStorage.getItem('elev8r_user') || '{}');
         this.income = +user.income || 0;
@@ -80,31 +110,28 @@
       },
       recalc() {
         const inc = this.income;
-        this.needsMin = Math.round(inc * 0.50);
-        this.needsMax = Math.round(inc * 0.50);
-        this.savings = Math.round(inc * 0.20);
-        this.wants  = Math.round(inc * 0.30);
+        this.needsMin   = Math.round(inc * 0.50);
+        this.needsMax   = Math.round(inc * 0.50);
+        this.needsTotal = Object.values(this.needs).reduce((s, r) => s + r.value, 0);
 
-        this.needsTotal = 0;
+        // populate min/max Rs and status colour
         for (const key in this.needs) {
           const row = this.needs[key];
           row.minRs = Math.round(inc * (row.pctMin / 100));
           row.maxRs = Math.round(inc * (row.pctMax / 100));
-          this.needsTotal += row.value;
-
-          // status colour
-          if (row.value < row.minRs) {
-            row.status = 'Below'; row.statusClass = 'text-red-600';
-          } else if (row.value > row.maxRs) {
-            row.status = 'Above'; row.statusClass = 'text-orange-600';
-          } else {
-            row.status = 'OK'; row.statusClass = 'text-green-600';
-          }
+          if (row.value < row.minRs) { row.status = 'Below'; row.statusClass = 'text-red-600'; }
+          else if (row.value > row.maxRs) { row.status = 'Above'; row.statusClass = 'text-orange-600'; }
+          else { row.status = 'OK'; row.statusClass = 'text-green-600'; }
         }
+
+        this.savingsTotal = Object.values(this.savingsHeads).reduce((s, r) => s + r.value, 0);
+        this.wantsTotal   = Object.values(this.wantsHeads).reduce((s, r) => s + r.value, 0);
       },
       save() {
         const data = JSON.parse(localStorage.getItem('elev8r_user') || {});
-        data.needs = Object.fromEntries(Object.entries(this.needs).map(([k,v])=>[k,v.value]));
+        data.needs       = Object.fromEntries(Object.entries(this.needs).map(([k,v])=>[k,v.value]));
+        data.savingsHeads = Object.fromEntries(Object.entries(this.savingsHeads).map(([k,v])=>[k,{value:v.value, goalPct:v.goalPct}]));
+        data.wantsHeads   = Object.fromEntries(Object.entries(this.wantsHeads).map(([k,v])=>[k,{value:v.value, goalPct:v.goalPct}]));
         localStorage.setItem('elev8r_user', JSON.stringify(data));
         alert('Saved!');
       }
