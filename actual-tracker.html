@@ -112,27 +112,37 @@
         this.recalc();
       },
       recalc() {
-        const inc = this.income + this.otherIncome;
-        // populate budgets
-        for (const key in this.needs) {
-          const row = this.needs[key];
-          row.budget = Math.round(inc * 0.50 * ((row.pctMin + row.pctMax) / 2 / 100));
-          row.diffPct = ((row.actual - row.budget) / row.budget) * 100;
-          row.diffClass = row.actual < row.budget ? 'text-green-600' : row.actual > row.budget ? 'text-red-600' : 'text-black';
-        }
-        for (const key in this.savingsHeads) {
-          this.savingsHeads[key].target = Math.round(inc * 0.20 * (this.savingsHeads[key].goalPct || 33) / 100);
-        }
-        for (const key in this.wantsHeads) {
-          this.wantsHeads[key].target = Math.round(inc * 0.30 * (this.wantsHeads[key].goalPct || 25) / 100);
-        }
-      },
-      get actualNeeds()   { return Object.values(this.needs).reduce((a,r)=>a+r.actual,0); },
-      get actualSavings() { return Object.values(this.savingsHeads).reduce((a,r)=>a+r.actual,0); },
-      get actualWants()   { return Object.values(this.wantsHeads).reduce((a,r)=>a+r.actual,0); },
-      get totalIncome()   { return this.income + this.otherIncome; },
-      get surplus()       { return this.totalIncome -
-        <!doctype html>
+  const inc = Number(this.income) + Number(this.otherIncome);
+
+  // Needs budgets (50 %)
+  for (const key in this.needs) {
+    const row = this.needs[key];
+    row.budget   = Math.round(inc * ((row.pctMin + row.pctMax) / 200));
+  }
+
+  // Savings budgets (20 %)
+  for (const key in this.savingsHeads) {
+    this.savingsHeads[key].target = Math.round(inc * 0.20 * (this.savingsHeads[key].goalPct || 33) / 100);
+  }
+
+  // Wants budgets (30 %)
+  for (const key in this.wantsHeads) {
+    this.wantsHeads[key].target = Math.round(inc * 0.30 * (this.wantsHeads[key].goalPct || 25) / 100);
+  }
+
+  // diffs & totals
+  for (const key in this.needs) {
+    const row = this.needs[key];
+    row.diffPct = ((row.actual - row.budget) / row.budget) * 100;
+    row.diffClass = row.actual < row.budget ? 'text-green-600' : row.actual > row.budget ? 'text-red-600' : '';
+  }
+  this.actualNeeds   = Object.values(this.needs).reduce((a,r)=>a+r.actual,0);
+  this.actualSavings = Object.values(this.savingsHeads).reduce((a,r)=>a+r.actual,0);
+  this.actualWants   = Object.values(this.wantsHeads).reduce((a,r)=>a+r.actual,0);
+  this.surplus       = (Number(this.income) + Number(this.otherIncome)) - this.actualNeeds - this.actualSavings - this.actualWants;
+  this.surplusClass  = this.surplus >= 0 ? 'text-green-600' : 'text-red-600';
+}
+
 <html lang="en">
 <head>
   <meta charset="UTF-8">
