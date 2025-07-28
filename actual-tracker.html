@@ -137,7 +137,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 </head>
-<body class="bg-slate-100 p-4">
+<body class="bg-slate-100 p-4" x-data="actualTracker()" x-init="load()">
   <div class="max-w-6xl mx-auto bg-white p-6 rounded shadow">
     <h1 class="text-2xl mb-4">Actual vs Budget – Month <span x-text="currentMonth()"></span></h1>
 
@@ -158,8 +158,7 @@
         <div x-text="row.label"></div>
         <div x-text="row.budget.toLocaleString()"></div>
         <div x-text="row.pctMin+'-'+row.pctMax+'%'"></div>
-        <input type="number" x-model.number="row.actual" @input="recalc()"
-               class="w-full border px-1 rounded">
+        <input type="number" x-model.number="row.actual" @input="recalc()" class="w-full border px-1 rounded">
         <span :class="row.diffClass" x-text="row.diffPct.toFixed(1)+'%'"></span>
       </div>
     </template>
@@ -173,8 +172,7 @@
       <div class="grid grid-cols-4 gap-2 mb-1">
         <div x-text="row.label"></div>
         <div x-text="row.target.toLocaleString()"></div>
-        <input type="number" x-model.number="row.actual" @input="recalc()"
-               class="w-full border px-1 rounded">
+        <input type="number" x-model.number="row.actual" @input="recalc()" class="w-full border px-1 rounded">
         <span x-text="(row.actual - row.target).toLocaleString()"></span>
       </div>
     </template>
@@ -188,8 +186,7 @@
       <div class="grid grid-cols-4 gap-2 mb-1">
         <div x-text="row.label"></div>
         <div x-text="row.target.toLocaleString()"></div>
-        <input type="number" x-model.number="row.actual" @input="recalc()"
-               class="w-full border px-1 rounded">
+        <input type="number" x-model.number="row.actual" @input="recalc()" class="w-full border px-1 rounded">
         <span x-text="(row.actual - row.target).toLocaleString()"></span>
       </div>
     </template>
@@ -202,12 +199,10 @@
       <div>Surplus / Deficit: ₹<span :class="surplusClass" x-text="surplus.toLocaleString()"></span></div>
     </div>
 
-    <button onclick="saveActual()" class="mt-6 bg-green-600 text-white px-4 py-2 rounded">Save & Transfer to Goals</button>
+    <button @click="saveActual()" class="mt-6 bg-green-600 text-white px-4 py-2 rounded">Save & Transfer to Goals</button>
   </div>
 
   <script>
-  function currentMonth() { return new Date().toISOString().slice(0,7); }
-
   function actualTracker() {
     return {
       income: 0,
@@ -231,20 +226,31 @@
         shopping: {label:'Shopping', target:0, actual:0},
         utilities:{label:'Utilities',target:0, actual:0}
       },
+      currentMonth() { return new Date().toISOString().slice(0,7); },
       load() {
         const user = JSON.parse(localStorage.getItem('elev8r_user') || '{}');
         this.income      = user.income || 0;
         this.otherIncome = user.otherIncome || 0;
+
+        // pre-fill actuals from previous save (if any)
+        const nAct = user.needsActual     || {};
+        const sAct = user.savingsActual   || {};
+        const wAct = user.wantsActual     || {};
+        for (const k in this.needs)      this.needs[k].actual      = nAct[k] || 0;
+        for (const k in this.savingsHeads) this.savingsHeads[k].actual = sAct[k] || 0;
+        for (const k in this.wantsHeads)   this.wantsHeads[k].actual   = wAct[k] || 0;
+
         this.recalc();
       },
       recalc() {
         const inc = this.income + this.otherIncome;
-        // populate budgets
+
+        // budgets
         for (const key in this.needs) {
           const row = this.needs[key];
-          row.budget = Math.round(inc * 0.50 * ((row.pctMin + row.pctMax) / 2 / 100));
+          row.budget = Math.round(inc * 0.50 * ((row.pctMin + row.pctMax) / 200));
           row.diffPct = ((row.actual - row.budget) / row.budget) * 100;
-          row.diffClass = row.actual < row.budget ? 'text-green-600' : row.actual > row.budget ? 'text-red-600' : 'text-black';
+          row.diffClass = row.actual < row.budget ? 'text-green-600' : row.actual > row.budget ? 'text-red-600' : '';
         }
         for (const key in this.savingsHeads) {
           this.savingsHeads[key].target = Math.round(inc * 0.20 * (this.savingsHeads[key].goalPct || 33) / 100);
@@ -269,10 +275,11 @@
         data.wantsActual     = Object.fromEntries(Object.entries(this.wantsHeads).map(([k,v])=>[k,v.actual]));
         localStorage.setItem('elev8r_user', JSON.stringify(data));
         alert('Saved! Surplus ₹' + this.surplus.toLocaleString() + ' will be transferred to goals.');
-        location.href = 'goal-board.html';
+        location.href='goal-board.html';
       }
     };
   }
   </script>
 </body>
+</html>
 </html>
