@@ -2,120 +2,118 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Elev8r – Goal Board</title>
+  <title>Elev8r – Goal Timeline</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 </head>
 <body class="bg-slate-100 p-4">
-  <div class="max-w-4xl mx-auto">
-    <h1 class="text-2xl mb-4">My Goals</h1>
+  <div class="max-w-5xl mx-auto bg-white p-6 rounded shadow">
+    <h1 class="text-2xl mb-4">Goal Timeline</h1>
 
-    <!-- Life-event triggers -->
-    <div class="flex space-x-2 mb-4">
-      <button onclick="lifeEvent('married')" class="bg-purple-600 text-white px-3 py-1 rounded">Married</button>
-      <button onclick="lifeEvent('kid')" class="bg-purple-600 text-white px-3 py-1 rounded">Had Kid</button>
-      <button onclick="lifeEvent('jobLoss')" class="bg-red-600 text-white px-3 py-1 rounded">Lost Job</button>
-    </div>
-
-    <div id="goalList" class="space-y-4">
-      <!-- Cards injected by JS -->
-    </div>
-
-    <button onclick="showAddModal()" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded">Add Goal</button>
-    <button onclick="location.href='sheet.html'" class="ml-2 bg-gray-600 text-white px-4 py-2 rounded">← Back to Sheet</button>
-  </div>
-
-  <!-- Add-goal modal -->
-  <div id="addModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-    <div class="bg-white p-6 rounded w-80">
-      <h3 class="mb-2">Add Goal</h3>
-      <select id="goalType" class="w-full border mb-2">
-        <option value="car">Car</option>
-        <option value="house">House</option>
-        <option value="vacation">Vacation</option>
-      </select>
-      <input id="goalName" placeholder="Name" class="w-full border mb-2">
-      <input id="goalTarget" type="number" placeholder="Target ₹" class="w-full border mb-2">
-      <input id="goalYear" type="number" placeholder="Years to goal" class="w-full border mb-2">
-      <div class="flex justify-end space-x-2">
-        <button onclick="closeAddModal()" class="px-3 py-1 text-sm">Cancel</button>
-        <button onclick="addGoal()" class="bg-blue-600 text-white px-3 py-1 text-sm rounded">Add</button>
+    <!-- Add goal -->
+    <div class="grid grid-cols-5 gap-2 mb-4 items-end text-sm">
+      <div>
+        <label class="block">Year-Month</label>
+        <input type="month" id="ym" class="w-full border px-1 rounded">
       </div>
+      <div>
+        <label class="block">Goal</label>
+        <input id="goalName" placeholder="e.g. Car" class="w-full border px-1 rounded">
+      </div>
+      <div>
+        <label class="block">Target ₹</label>
+        <input id="target" type="number" class="w-full border px-1 rounded">
+      </div>
+      <div>
+        <label class="block">Priority</label>
+        <select id="priority" class="w-full border px-1 rounded">
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+      <button onclick="addRow()" class="bg-blue-600 text-white px-2 py-1 rounded">Add</button>
     </div>
+
+    <!-- Table -->
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="bg-gray-100">
+            <th>Year-Month</th><th>Goal</th><th>Target ₹</th>
+            <th>Savings Begin</th><th>Estimated Complete</th><th>Remarks</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+    <button onclick="location.href='sheet.html'" class="mt-6 bg-gray-600 text-white px-4 py-2 rounded">← Back to Sheet</button>
   </div>
 
   <script>
-  const user = JSON.parse(localStorage.getItem('elev8r_user') || '{});
+  const user  = JSON.parse(localStorage.getItem('elev8r_user') || '{}');
+  const needs = JSON.parse(localStorage.getItem('elev8r_user') || '{}').needs || {};
+  const wants = JSON.parse(localStorage.getItem('elev8r_user') || '{}').wantsHeads || {};
 
-  // default goals
-  let goals = [
-    {id:'emergency', name:'Emergency Fund', type:'emergency', target:user.income?.*6 || 0, year:0, locked:true}
-  ];
+  // compute monthly surplus
+  function surplus() {
+    const inc = user.income || 0;
+    const nTotal = Object.values(needs).reduce((a,b)=>a+(+b),0);
+    const wTotal = Object.values(wants).reduce((a,b)=>a+(+b.value),0);
+    return Math.max(0, inc - nTotal - wTotal);
+  }
+
+  let goals = JSON.parse(localStorage.getItem('elev8r_goals2') || '[]');
+
+  function addRow() {
+    const ym      = document.getElementById('ym').value;
+    const name    = document.getElementById('goalName').value;
+    const target  = Number(document.getElementById('target').value);
+    const priority= document.getElementById('priority').value;
+    if (!ym || !name || !target) return alert('Fill all fields');
+
+    const begin   = new Date().toISOString().slice(0,7); // YYYY-MM
+    const surplusAmt = surplus();
+    let monthsNeeded = Math.ceil(target / surplusAmt) || 9999;
+    if (priority === 'high' && monthsNeeded > 48) monthsNeeded = 48; // thumb rule cap
+    const endDate = new Date(begin + '-01');
+    endDate.setMonth(endDate.getMonth() + monthsNeeded);
+    const complete = endDate.toISOString().slice(0,7);
+
+    let remark = '';
+    if (surplusAmt === 0) remark = 'Need surplus first';
+    else if (monthsNeeded > 60) remark = 'Long term; raise surplus';
+    else remark = 'On track';
+
+    goals.push({ym, name, target, begin, complete, remark});
+    localStorage.setItem('elev8r_goals2', JSON.stringify(goals));
+    render();
+    document.getElementById('ym').value=''; document.getElementById('goalName').value=''; document.getElementById('target').value='';
+  }
+
+  function delRow(i) {
+    goals.splice(i,1);
+    localStorage.setItem('elev8r_goals2', JSON.stringify(goals));
+    render();
+  }
 
   function render() {
-    const list = document.getElementById('goalList');
-    list.innerHTML = '';
-    goals.forEach(g => {
-      const div = document.createElement('div');
-      div.className = 'bg-white p-4 rounded shadow flex justify-between items-center';
-      div.dataset.id = g.id;
-      div.innerHTML = `
-        <div>
-          <b>${g.name}</b>
-          <br><span class="text-sm">Target ₹${g.target.toLocaleString()} in ${g.year} yrs</span>
-          <br><span class="text-xs">${g.type==='car' ? carAdvice(g.target) : ''}</span>
-        </div>
-        ${!g.locked ? `<button onclick="delGoal('${g.id}')" class="text-red-600 text-xs">✕</button>` : ''}
+    const tbody = document.getElementById('tbody');
+    tbody.innerHTML = '';
+    goals.forEach((g,i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${g.ym}</td>
+        <td>${g.name}</td>
+        <td>${g.target.toLocaleString()}</td>
+        <td>${g.begin}</td>
+        <td>${g.complete}</td>
+        <td class="text-xs">${g.remark}</td>
+        <td><button onclick="delRow(${i})" class="text-red-600">✕</button></td>
       `;
-      list.appendChild(div);
+      tbody.appendChild(tr);
     });
-    new Sortable(document.getElementById('goalList'), {
-      onEnd: () => {
-        const ids = [...document.querySelectorAll('#goalList > div')].map(el => el.dataset.id);
-        goals = ids.map(id => goals.find(g => g.id === id));
-        saveGoals();
-      }
-    });
-  }
-
-  function carAdvice(price) {
-    const dp   = Math.round(price * 0.20);
-    const emi  = Math.round(price * 0.80 / 48);
-    const run  = Math.round(user.income * 0.10 / 12);
-    return `DP ₹${dp} EMI ₹${emi} Run ₹${run}`;
-  }
-
-  function showAddModal() { document.getElementById('addModal').classList.remove('hidden'); }
-  function closeAddModal() { document.getElementById('addModal').classList.add('hidden'); }
-
-  function addGoal() {
-    const type = document.getElementById('goalType').value;
-    const name = document.getElementById('goalName').value;
-    const target = +document.getElementById('goalTarget').value;
-    const year = +document.getElementById('goalYear').value;
-    goals.push({id:Date.now(), name, type, target, year, locked:false});
-    saveGoals();
-    closeAddModal();
-    render();
-  }
-
-  function delGoal(id) {
-    goals = goals.filter(g => g.id !== id);
-    saveGoals();
-    render();
-  }
-
-  function lifeEvent(evt) {
-    if (evt === 'married') { user.income *= 1.3; user.dependants += 1; }
-    if (evt === 'kid')     { user.dependants += 1; }
-    if (evt === 'jobLoss') { user.income *= 0.7; }
-    localStorage.setItem('elev8r_user', JSON.stringify(user));
-    location.reload(); // quick re-render
-  }
-
-  function saveGoals() {
-    localStorage.setItem('elev8r_goals', JSON.stringify(goals));
   }
 
   render();
