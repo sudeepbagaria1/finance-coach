@@ -112,30 +112,20 @@
         this.recalc();
       },
       recalc() {
+  // budgets & targets are now **user-entered**; only percentages & Indian ranges are shown
   const inc = Number(this.income) + Number(this.otherIncome);
 
-  // Needs – precise % of total income
+  // Indian ranges (display only)
   for (const key in this.needs) {
     const row = this.needs[key];
-    row.budget   = Math.round(inc * ((row.pctMin + row.pctMax) / 2) / 100);
-    row.diffPct  = ((row.actual - row.budget) / row.budget) * 100;
-    row.diffClass = row.actual < row.budget ? 'text-green-600' : row.actual > row.budget ? 'text-red-600' : '';
+    row.indiaMin = Math.round(inc * row.pctMin / 100);
+    row.indiaMax = Math.round(inc * row.pctMax / 100);
   }
 
-  // Savings – 20 % of income
-  for (const key in this.savingsHeads) {
-    this.savingsHeads[key].target = Math.round(inc * 0.20);
-  }
-
-  // Wants – 30 % of income
-  for (const key in this.wantsHeads) {
-    this.wantsHeads[key].target = Math.round(inc * 0.30);
-  }
-
-  // Totals
-  this.actualNeeds   = Object.values(this.needs).reduce((a,r)=>a+r.actual,0);
-  this.actualSavings = Object.values(this.savingsHeads).reduce((a,r)=>a+r.actual,0);
-  this.actualWants   = Object.values(this.wantsHeads).reduce((a,r)=>a+r.actual,0);
+  // **no auto-budgets** – user types actuals
+  this.actualNeeds   = Object.values(this.needs).reduce((a,r)=>a+Number(r.actual),0);
+  this.actualSavings = Object.values(this.savingsHeads).reduce((a,r)=>a+Number(r.actual),0);
+  this.actualWants   = Object.values(this.wantsHeads).reduce((a,r)=>a+Number(r.actual),0);
   this.surplus       = inc - this.actualNeeds - this.actualSavings - this.actualWants;
   this.surplusClass  = this.surplus >= 0 ? 'text-green-600' : 'text-red-600';
 }
