@@ -17,11 +17,10 @@
         <input type="number" name="income" required min="0" class="w-full border px-2 py-1 rounded">
       </label>
 
-            <!-- Age -->
+      <!-- Age -->
       <label class="block">
         <span>Age</span>
-        <input type="number" name="age" required min="18" max="100"
-               class="w-full border px-2 py-1 rounded">
+        <input type="number" name="age" required min="18" max="100" class="w-full border px-2 py-1 rounded">
       </label>
 
       <!-- Co-earners -->
@@ -54,26 +53,18 @@
     // auto-calculate riskScore 1-5 based on conditions
     function calcRisk(data) {
       let score = 3; // baseline
-
-      // Income stability
       const income = +data.income;
       const coEarners = +data.coEarners;
       if (income < 30000) score -= 1;
       if (income > 100000) score += 1;
       if (coEarners === 0) score -= 1;
-
-      // City tier (higher tier = higher risk tolerance)
       const city = +data.cityTier;
-      score += (city - 2); // metro +1, tier 3 -1
-
-      // Dependants (liability)
+      score += (city - 2);
       const deps = +data.dependants;
       score = Math.max(1, Math.min(5, score - (deps * 0.5)));
-
       return Math.round(score);
     }
 
-    // handle submit
     document.getElementById('quiz').addEventListener('submit', e => {
       e.preventDefault();
       const data = Object.fromEntries(new FormData(e.target).entries());
