@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Elev8r – Life-Event Simulator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 p-4">
+  <div class="max-w-4xl mx-auto bg-white p-6 rounded shadow">
+    <h1 class="text-2xl mb-4">Life-Event Simulator</h1>
+
+    <!-- Current snapshot -->
+    <div class="mb-4">
+      <div class="grid grid-cols-2 gap-4 text-sm">
+        <div>Income: <span id="income" class="font-bold"></span></div>
+        <div>Monthly Surplus: <span id="surplus" class="font-bold"></span></div>
+      </div>
+    </div>
+
+    <!-- Event buttons -->
+    <div class="flex flex-wrap gap-2 mb-4">
+      <button onclick="applyEvent('married')"   class="bg-purple-600 text-white px-3 py-1 rounded">Married</button>
+      <button onclick="applyEvent('kid')"       class="bg-purple-600 text-white px-3 py-1 rounded">Kid</button>
+      <button onclick="applyEvent('jobLoss')"   class="bg-red-600    text-white px-3 py-1 rounded">Job Loss</button>
+      <button onclick="applyEvent('salaryHike')"class="bg-green-600  text-white px-3 py-1 rounded">Salary +20 %</button>
+      <button onclick="applyEvent('tier2')"     class="bg-yellow-600 text-white px-3 py-1 rounded">Move to Tier-2</button>
+      <button onclick="resetEvents()"           class="bg-gray-600   text-white px-3 py-1 rounded">Reset</button>
+    </div>
+
+    <!-- Preview table -->
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="bg-gray-100">
+          <th>Goal</th><th>Old Complete</th><th>New Complete</th><th>Advice</th>
+        </tr>
+      </thead>
+      <tbody id="preview"></tbody>
+    </table>
+
+    <button onclick="saveChanges()" class="mt-6 bg-green-600 text-white px-4 py-2 rounded">Save & Apply</button>
+    <button onclick="location.href='goal-board.html'" class="ml-2 bg-gray-600 text-white px-4 py-2 rounded">← Back</button>
+  </div>
+
+  <script>
+  const original = JSON.parse(localStorage.getItem('elev8r_user') || '{}');
+  const originalGoals = JSON.parse(localStorage.getItem('elev8r_goals3') || '[]');
+
+  let user = JSON.parse(JSON.stringify(original));
+  let goals = JSON.parse(JSON.stringify(originalGoals));
+
+  // helper
+  function surplus() {
+    const inc   = user.income || 0;
+    const needs = Object.values(user.needs || {}).reduce((a,b)=>a+(+b),0);
+    const wants = Object.values(user.wantsHeads || {}).reduce((a,b)=>a+(+b.value),0);
+    return Math.max(0, inc - needs - wants);
+  }
+
+  function compute(goal) {
+    const s = surplus();
+    if (s === 0) return {complete:'Never', advice:'Need surplus'};
+    const months = Math.ceil(goal.target / s);
+    const complete = addMonths(nowYM(), months);
+    return {complete, advice: months > 60 ? 'Long term' : 'OK'};
+  }
+
+  function nowYM() { return new Date().toISOString().slice(0,7); }
+  function addMonths(ym,n){
+    const d = new Date(ym + '-01');
+    d.setMonth(d.getMonth() + n);
+    return d.toISOString().slice(0,7);
+  }
+
+  // events
+  const events = {
+    married()  { user.income *= 1.3; user.dependants += 1; },
+    kid()      { user.dependants += 1; },
+    jobLoss()  { user.income *= 0.7; },
+    salaryHike(){ user.income *= 1.2; },
+    tier2()    { user.cityTier = 2; }
+  };
+
+  function applyEvent(evt){
+    events[evt]();
+    renderPreview();
+  }
+
+  function resetEvents(){
+    user  = JSON.parse(JSON.stringify(original));
+    goals = JSON.parse(JSON.stringify(originalGoals));
+    renderPreview();
+  }
+
+  function renderPreview(){
+    const tbody = document.getElementById('preview');
+    tbody.innerHTML = '';
+    goals.forEach(g=>{
+      const old = compute(g);
+      const userBackup = JSON.parse(JSON.stringify(user));
+      const newR = compute(g);
+      user = userBackup; // revert for next iteration
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${g.name}</td>
+        <td>${old.complete}</td>
+        <td>${newR.complete}</td>
+        <td>${newR.advice}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function saveChanges(){
+    localStorage.setItem('elev8r_user', JSON.stringify(user));
+    localStorage.setItem('elev8r_goals3', JSON.stringify(originalGoals));
+    alert('Changes saved!');
+    location.href='goal-board.html';
+  }
+
+  // initial render
+  document.getElementById('income').textContent  = user.income || 0;
+  document.getElementById('surplus').textContent = surplus();
+  renderPreview();
+  </script>
+</body>
+</html>
