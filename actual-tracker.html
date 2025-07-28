@@ -12,11 +12,15 @@
     <h1 class="text-2xl mb-4">Actual vs Budget – Month <span x-text="currentMonth()"></span></h1>
 
     <!-- Income -->
-    <div class="grid grid-cols-3 gap-4 mb-4">
-      <label>Salary received (₹)<input x-model.number="income" type="number" class="w-full border px-2 rounded"></label>
-      <label>Other income (₹)<input x-model.number="otherIncome" type="number" class="w-full border px-2 rounded"></label>
-      <div class="font-bold">Total Income: ₹<span x-text="totalIncome.toLocaleString()"></span></div>
-    </div>
+<div class="grid grid-cols-3 gap-4 mb-4">
+  <label>Salary received (₹)
+    <input x-model.number="income" type="number" step="1" class="w-full border px-2 rounded">
+  </label>
+  <label>Other income (₹)
+    <input x-model.number="otherIncome" type="number" step="1" class="w-full border px-2 rounded">
+  </label>
+  <div class="font-bold">Total Income: ₹<span x-text="Number(income) + Number(otherIncome)"></span></div>
+</div>
 
     <!-- Needs -->
     <h2 class="text-lg font-bold mt-4">Needs</h2>
